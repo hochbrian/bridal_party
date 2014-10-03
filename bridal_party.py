@@ -44,11 +44,11 @@ class groomsman():
 		#name, last_name, pronunciation, phone, paid, party_paid, tux, order, bridesmaid
 		self.properties = kwargs
 
-	def get_phone(self):
-		return self.properties.get('phone', None)
+	#def get_phone(self):
+	#	return self.properties.get('phone', None)
 
-	def set_phone(self, phone):
-		self.properties['phone'] = phone
+	#def set_phone(self, phone):
+	#	self.properties['phone'] = phone
 
 	def get_property(self, property):
 		return self.properties.get(property, None)
@@ -80,14 +80,15 @@ def show_groomsman():
 def contact_button_press(sender):
 	if sender.name == 'sms_button':
 		protocol = 'sms'
-		contact = g.get_phone()
+		contact = g.get_property('phone')
 	elif sender.name == 'dial_button':
 		protocol = 'tel'
-		contact = g.get_phone()
+		contact = g.get_property('phone')
 	elif sender.name == 'email_button':
 		protocol = 'mailto'
 		contact = '{}?subject=Graham%20and%20Kali%27s%20Wedding'.format(g.get_property('email'))
 	else: print('throw error')
+	# Use webbrowser call to use url schemes for actions
 	webbrowser.open('{}:{}'.format(protocol, contact))
 
 def toggle_switch_press(sender):
@@ -183,15 +184,6 @@ def write_data(field, value, name, is_switch):
 
 	g.set_property(field,p)
 
-def main():
-	global groomsmen
-	# Load groomsmen from database
-	groomsmen = load_data()
-	for d in groomsmen:
-		g = groomsmen[d]
-
-	present_groomsmen_view(1)
-
 def open_db():
 	global conn
 	conn = sqlite3.connect('groomsmen.sqlite')
@@ -209,7 +201,7 @@ def get_groomsman_by_row():
 	return r
 
 class g_table_datasource ():
-
+	#class and methods to handle tableview
 	def tableview_number_of_sections(self, tableview):
 		# Return the number of sections (defaults to 1)
 		return 1
@@ -299,6 +291,14 @@ def present_speech_view(sender):
 	#speech_nav_view.right_button_items = ui.ButtonItem(title='View',action=present_groomsmen_view(1))
 	speech_nav_view.present('sv')
 
+def main():
+	global groomsmen
+	# Load groomsmen from database
+	groomsmen = load_data()
+	for d in groomsmen:
+		g = groomsmen[d]
+
+	present_groomsmen_view(1)
 
 if __name__ == "__main__":
 	main()
