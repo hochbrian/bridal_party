@@ -18,16 +18,15 @@
 #
 
 #########################################################################
-#                                 TO DO                 		#
+#                                 TO DO			                 		#
 #########################################################################
-#   - Write int to bool converter function				#
-#      - Use function in read and write calls				#
-#   - Write UI and functions for adding groomsman			#
-#   - Switch TableView datasource to groomsmen array			#
-#   - UIWebView for viewing Markdown speech				#
-#   - Speech editor UI							#
+#   ++ Write int to bool converter function								#
+#      ++ Use function in read and write calls							#
+#   - Write UI and functions for adding groomsman						#
+#   - Switch TableView datasource to groomsmen array					#
+#   - UIWebView for viewing Markdown speech								#
+#   - Speech editor UI													#
 #########################################################################
-
 
 # coding: utf-8
 
@@ -63,42 +62,33 @@ class groomsman():
 
 def table_did_select_row(sender):
 	global g
-	if sender.selected_row == 0:
-		g = groomsmen['Brian']
-	elif sender.selected_row == 1:
-		g = groomsmen['Craig']
-	elif sender.selected_row == 2:
-		g = groomsmen['Eric']
-	elif sender.selected_row == 3:
-		g = groomsmen['Levi']
-	elif sender.selected_row == 4:
-		g = groomsmen['Elijah']
-	else: g = None 
+	g = groomsmen[str(sender.selected_row)]
 	show_groomsman()
 
 def show_groomsman():
 	subview = ui.load_view('bridal_party_detail')
+	subview.name = g.get_property('name')
 	nav_view.push_view(subview)
-	subview['name_label'].text = g.get_property('name')
+	#subview['name_label'].text = g.get_property('name')
 	subview['paid'].value = g.get_property('paid')
 	subview['tux'].value = g.get_property('tux')
 	subview['party_paid'].value = g.get_property('party_paid')
+	subview['position_label'].text = 'Position: {}'.format(g.get_property('order')+1)
+	subview['bridesmaid_label'].text = 'Walking with {}'.format(g.get_property('bridesmaid'))
+	print(g.get_property('pronunciation'))
 
-def phone_button_press(sender):
+def contact_button_press(sender):
 	if sender.name == 'sms_button':
 		protocol = 'sms'
+		contact = g.get_phone()
 	elif sender.name == 'dial_button':
 		protocol = 'tel'
+		contact = g.get_phone()
+	elif sender.name == 'email_button':
+		protocol = 'mailto'
+		contact = '{}?subject=Graham%20and%20Kali%27s%20Wedding'.format(g.get_property('email'))
 	else: print('throw error')
-	webbrowser.open('{}:{}'.format(protocol, g.get_phone()))
-
-def show_info(sender):
-	# Display overlay of additional info
-	info = ui.load_view('info')
-	info['name_label'].text = '{} {}'.format(g.get_property('name'), g.get_property('last_name'))
-	info['order_label'].text = 'Order : {}'.format(str(g.get_property('order')+1))
-	info['bridesmaid_label'].text = 'Bridesmaid : {}'.format(g.get_property('bridesmaid'))
-	nav_view.push_view(info)
+	webbrowser.open('{}:{}'.format(protocol, contact))
 
 def toggle_switch_press(sender):
 	# Provide random positive and negative feedback for toggle switches
@@ -111,12 +101,12 @@ def toggle_switch_press(sender):
 		yes, no = 'For Great Justice!', 'Well, dang'
 	elif response == 3:
 		yes, no = '#Winning', '::sigh::'
-	
+
 	# Convert boolean values to int
 	if sender.value == True:
 		b = 1
 	else: b = 0
-		
+
 	try:
 		write_data(sender.name,b,g.get_property('name'),True)
 		hud_alert(yes,'success',.5)
@@ -126,15 +116,17 @@ def toggle_switch_press(sender):
 
 def load_data():
 	open_db()
-	c.execute('SELECT * FROM groomsmen;')
+	c.execute('SELECT * FROM groomsmen')
+	#print(c.fetchall())
 	party = {}
 	# Loop through records within each row and split into groomsman object properties
+	n=0
 	for gm in c.fetchall():
 		i = 0
-		name = ''
+		name=str(n)
 		for p in gm:
 			if i == 0:
-				name = p
+				#name=p
 				g = groomsman(name=p)
 			elif i == 1:
 				g.set_property('last_name',p)
@@ -169,9 +161,10 @@ def load_data():
 			i += 1
 		# Add row to groomsman array
 		party[name] = g
+		n+=1
 	close_db()
 	return party
-	
+
 def write_data(field, value, name, is_switch):
 	open_db()
 	query = 'UPDATE groomsmen SET {}={} WHERE name=\'{}\''.format(field, value, name)
@@ -180,33 +173,27 @@ def write_data(field, value, name, is_switch):
 	except DBWriteError:
 		print('Could not write data to db')
 	close_db()
-	
+
 	# Convert int to bool if sender was switch
 	if is_switch == True:
 		if value == 0:
 			p = False
 		else: p = True
 	else: p = value
-	
+
 	g.set_property(field,p)
-	
+
 def main():
 	global groomsmen
 	# Load groomsmen from database
 	groomsmen = load_data()
 	for d in groomsmen:
 		g = groomsmen[d]
-	
-	# Load bridal_party.pyui as NavigationView
-	v = ui.load_view('bridal_party')
-	v.name = 'Groomsmen'
-	global nav_view
-	nav_view = ui.NavigationView(v)
-	nav_view.tint_color = '#ed9500'
-	nav_view.present('fullscreen')
-	
+
+	present_groomsmen_view(1)
+
 def open_db():
-	global conn 
+	global conn
 	conn = sqlite3.connect('groomsmen.sqlite')
 	global c
 	c = conn.cursor()
@@ -214,6 +201,104 @@ def open_db():
 def close_db():
 	conn.commit()
 	conn.close()
-	
+
+def get_groomsman_by_row():
+	r=[]
+	for i in groomsmen:
+		r.append(groomsmen[i].get_property('name'))
+	return r
+
+class g_table_datasource ():
+
+	def tableview_number_of_sections(self, tableview):
+		# Return the number of sections (defaults to 1)
+		return 1
+
+	def tableview_number_of_rows(self, tableview, section):
+		# Return the number of rows in the section
+		return len(groomsmen.keys())
+
+	def tableview_cell_for_row(self, tableview, section, row):
+		# Create and return a cell for the given section/row
+		cell = ui.TableViewCell('subtitle')
+		cell.accessory_type = 'disclosure_indicator'
+		cell.text_label.text = groomsmen[str(row)].get_property('name')
+		cell.detail_text_label.text = groomsmen[str(row)].get_property('bridesmaid')
+		cell.detail_text_label.text_color = '#777'
+		return cell
+
+	def tableview_delete(self, tableview, section, row):
+		# Called when the user confirms deletion of the given row.
+		return False
+
+	def tableview_can_delete(self, tableview, section, row):
+		return False
+
+	def tableview_can_move(self, tableview, section, row):
+		return False
+
+def add_groomsman():
+	pass
+
+def add_groomsman_button_tap(sender):
+	subview = ui.load_view('groomsman_genesis')
+	subview['phone_txtfld'].keyboard_type = ui.KEYBOARD_DECIMAL_PAD
+	subview['email_txtfld'].keyboard_type = ui.KEYBOARD_EMAIL
+	subview['order_txtfld'].keyboard_type = ui.KEYBOARD_NUMBER_PAD
+	nav_view.push_view(subview)
+
+def create_new_groomsman(sender):
+	sql = "INSERT INTO groomsmen VALUES (?, ?, ?,?,?,0,0,0,?,?);"
+	#'first', 'last', 'pronunc', 'phone', 'email', 0,0,0,order, 'bridesmaid');
+	form = sender.superview
+	name = form['name_txtfld'].text.split(None, 1)
+	first_name = name[0]
+	last_name = name[1].strip()
+	if form['pronunciation_txtfld'].text != '':
+		pronunc = form['pronunciation_txtfld'].text.strip()
+	else: pronunc = ''
+	phone = form['phone_txtfld'].text.strip()
+	email = form['email_txtfld'].text.strip()
+	order = form['order_txtfld'].text.strip()
+	bridesmaid = form['bridesmaid_txtfld'].text.strip()
+	#print(sql.format(first_name,last_name,pronunc,phone,email,order,bridesmaid))
+	query = (first_name,last_name,pronunc,phone,email,order,bridesmaid)
+	open_db()
+	c.execute(sql, query)
+	close_db()
+
+	sender.superview.close()
+	#sender.superview.navigation_view['groomsmen_tbl'].reload()
+
+def close_groomsman_add(sender):
+	#sender.superview.navigation_view
+	pass
+
+def present_groomsmen_view(sender):
+	# Load bridal_party.pyui as NavigationView
+	v = ui.load_view('bridal_party')
+	v.name = 'Groomsmen'
+	groomsmen_table = g_table_datasource()
+	#groomsmen_table.get_groomsman_by_row()
+	v['groomsmen_tbl'].data_source = groomsmen_table
+	global nav_view
+	nav_view = ui.NavigationView(v)
+	nav_view.bar_tint_color = '#cccccc'
+	nav_view.tint_color = '#90a681'
+	nav_view.title_color = '#90a681'
+	nav_view.present('fullscreen', hide_title_bar=True)
+
+def present_speech_view(sender):
+	global speech_nav_view
+	sv = ui.load_view('speech_write')
+	sv.name = 'Speech'
+	speech_nav_view = ui.NavigationView(sv)
+	speech_nav_view.bar_tint_color = '#ed9500'
+	speech_nav_view.tint_color = '#ffffff'
+	speech_nav_view.title_color = '#ffffff'
+	#speech_nav_view.right_button_items = ui.ButtonItem(title='View',action=present_groomsmen_view(1))
+	speech_nav_view.present('sv')
+
+
 if __name__ == "__main__":
 	main()
