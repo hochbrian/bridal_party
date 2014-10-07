@@ -44,11 +44,11 @@ class groomsman():
 		#name, last_name, pronunciation, phone, paid, party_paid, tux, order, bridesmaid
 		self.properties = kwargs
 
-	#def get_phone(self):
-	#	return self.properties.get('phone', None)
+	def get_phone(self):
+		return self.properties.get('phone', None)
 
-	#def set_phone(self, phone):
-	#	self.properties['phone'] = phone
+	def set_phone(self, phone):
+		self.properties['phone'] = phone
 
 	def get_property(self, property):
 		return self.properties.get(property, None)
@@ -61,6 +61,11 @@ class groomsman():
 			print(k,self.properties[k])
 
 def table_did_select_row(sender):
+	global g
+	g = groomsmen[str(sender.selected_row)]
+	show_groomsman()
+
+def table_did_select_accessory(sender):
 	global g
 	g = groomsmen[str(sender.selected_row)]
 	show_groomsman()
@@ -80,15 +85,14 @@ def show_groomsman():
 def contact_button_press(sender):
 	if sender.name == 'sms_button':
 		protocol = 'sms'
-		contact = g.get_property('phone')
+		contact = g.get_phone()
 	elif sender.name == 'dial_button':
 		protocol = 'tel'
-		contact = g.get_property('phone')
+		contact = g.get_phone()
 	elif sender.name == 'email_button':
 		protocol = 'mailto'
 		contact = '{}?subject=Graham%20and%20Kali%27s%20Wedding'.format(g.get_property('email'))
 	else: print('throw error')
-	# Use webbrowser call to use url schemes for actions
 	webbrowser.open('{}:{}'.format(protocol, contact))
 
 def toggle_switch_press(sender):
@@ -184,6 +188,16 @@ def write_data(field, value, name, is_switch):
 
 	g.set_property(field,p)
 
+def main():
+	global groomsmen
+	# Load groomsmen from database
+	groomsmen = load_data()
+	for d in groomsmen:
+		g = groomsmen[d]
+
+	#present_groomsmen_view(1)
+	present_top_nav(1)
+
 def open_db():
 	global conn
 	conn = sqlite3.connect('groomsmen.sqlite')
@@ -201,7 +215,7 @@ def get_groomsman_by_row():
 	return r
 
 class g_table_datasource ():
-	#class and methods to handle tableview
+
 	def tableview_number_of_sections(self, tableview):
 		# Return the number of sections (defaults to 1)
 		return 1
@@ -213,10 +227,13 @@ class g_table_datasource ():
 	def tableview_cell_for_row(self, tableview, section, row):
 		# Create and return a cell for the given section/row
 		cell = ui.TableViewCell('subtitle')
+		#cell.accessory_type = 'detail_button'
+		#cell.accessory_type = 'detail_disclosure_button'
 		cell.accessory_type = 'disclosure_indicator'
 		cell.text_label.text = groomsmen[str(row)].get_property('name')
 		cell.detail_text_label.text = groomsmen[str(row)].get_property('bridesmaid')
 		cell.detail_text_label.text_color = '#777'
+		#cell.image_view
 		return cell
 
 	def tableview_delete(self, tableview, section, row):
@@ -271,34 +288,128 @@ def present_groomsmen_view(sender):
 	v = ui.load_view('bridal_party')
 	v.name = 'Groomsmen'
 	groomsmen_table = g_table_datasource()
-	#groomsmen_table.get_groomsman_by_row()
 	v['groomsmen_tbl'].data_source = groomsmen_table
-	global nav_view
-	nav_view = ui.NavigationView(v)
-	nav_view.bar_tint_color = '#cccccc'
-	nav_view.tint_color = '#90a681'
-	nav_view.title_color = '#90a681'
-	nav_view.present('fullscreen', hide_title_bar=True)
+	#global nav_view
+	#nav_view = ui.NavigationView(v)
+	#nav_view.bar_tint_color = '#cccccc'
+	#nav_view.tint_color = '#90a681'
+	#nav_view.title_color = '#90a681'
+	#nav_view.present('fullscreen')#, hide_title_bar=True)
 
 def present_speech_view(sender):
 	global speech_nav_view
 	sv = ui.load_view('speech_write')
 	sv.name = 'Speech'
 	speech_nav_view = ui.NavigationView(sv)
-	speech_nav_view.bar_tint_color = '#ed9500'
+	speech_nav_view.bar_tint_color = '#90a681'
 	speech_nav_view.tint_color = '#ffffff'
 	speech_nav_view.title_color = '#ffffff'
-	#speech_nav_view.right_button_items = ui.ButtonItem(title='View',action=present_groomsmen_view(1))
 	speech_nav_view.present('sv')
 
-def main():
-	global groomsmen
-	# Load groomsmen from database
-	groomsmen = load_data()
-	for d in groomsmen:
-		g = groomsmen[d]
+class nav_table_datasource():
+	global nav_items
+	nav_items = ['Groomsmen','Manage Groomsmen','Manage Bridesmaids','Write Speech','Schedule']
 
-	present_groomsmen_view(1)
+	def tableview_number_of_sections(self, tableview):
+		return 1
+	def tableview_number_of_rows(self, tableview, section):
+		return len(nav_items)
+
+	def tableview_cell_for_row(self, tableview, section, row):
+		cell = ui.TableViewCell()
+		cell.accessory_type = 'disclosure_indicator'
+		cell.text_label.text = nav_items[row]
+		return cell
+
+	def tableview_delete(self, tableview, section, row):
+		# Called when the user confirms deletion of the given row.
+		return False
+
+	def tableview_can_delete(self, tableview, section, row):
+		return False
+
+	def tableview_can_move(self, tableview, section, row):
+		return False
+
+def present_top_nav(sender):
+	superview = ui.load_view('super_view')
+	superview.name = 'Home'
+	nav_table = nav_table_datasource()
+	superview['nav_tbl'].data_source = nav_table
+	global nav_view
+	nav_view = ui.NavigationView(superview)
+	nav_view.bar_tint_color = '#888888'
+	#nav_view.tint_color = '#90a681'
+	#nav_view.title_color = '#90a681'
+	nav_view.tint_color = '#ffffff'
+	nav_view.title_color = '#ffffff'
+	nav_view.present('fullscreen')#, hide_title_bar=True)
+
+def nav_did_select_row(sender):
+	choice = sender.selected_row
+	if choice == 0:
+		subv = ui.load_view('bridal_party')
+		subv.name = 'Groomsmen'
+		groomsmen_table = g_table_datasource()
+		subv['groomsmen_tbl'].data_source = groomsmen_table
+	elif choice == 1:
+		subv = ui.load_view('groomsman_genesis')
+		subv.name = 'New Groomsman'
+	elif choice == 2:
+		print('3')
+	elif choice == 3:
+		subv = ui.load_view('speech_write')
+		subv.name = 'Write'
+		subv['speech'].font = ('SourceCodePro-Regular', 18)
+		subv['speech'].text = load_speech()
+	else: print('5')
+	nav_view.push_view(subv)
+
+def save_speech(sender):
+	sql = 'INSERT INTO speech VALUES (NULL, ?);'
+	query = (sender.superview['speech'].text,)
+	open_db()
+	c.execute(sql, query)
+	close_db()
+
+def load_speech():
+	open_db()
+	c.execute('SELECT speech FROM speech WHERE version = (SELECT MAX(version) FROM speech);')# 1;')
+	text = ''
+	try:
+		for line in c.fetchone():
+			text += line
+	except:
+		text = ''
+	close_db()
+	return text
+
+def view_speech(sender):
+	#save_speech(sender)
+	speech = '''
+<!DOCTYPE html>
+<head>
+  <style>
+    body {
+          font-family: Avenir, sans-serif;
+          }
+    h1:after {
+              content: '';
+              width: 100%;
+              float: left;
+              border-bottom: 1px solid #777;
+              }
+  </style>
+</head>
+<body>\n'''
+	#speech += load_speech()
+	speech += sender.superview['speech'].text
+	speech += '''
+</body>'''
+	spview = ui.load_view('speech_viewer')
+	spview.name = 'Speech'
+	spview['md_viewer'].load_html(markdown2.markdown(speech))
+	nav_view.push_view(spview)
 
 if __name__ == "__main__":
 	main()
